@@ -83,8 +83,25 @@ def _parse_with_groq(text: str) -> ParseResult:
     completion = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": "You are a data extraction assistant. Return only structured JSON via the tool."},
-            {"role": "user", "content": text},
+            {
+                "role": "system",
+                "content": """
+You are a helpful assistant that extracts structured information of an ONLINE transaction from raw text.
+You have to exctract the following information:
+- date of the transaction in ISO format (YYYY-MM-DD)
+- Time of the transaction in 24-hour format (HH:MM)
+- Transaction ID (usually a 13-16 digit number)
+- Amount of the transaction (in float, without currency symbols and is optional if not present in the text)
+- Client ID (Aadhar number, Account Number or similar)
+- Remaining Balance after the transaction (in float, without currency symbols and is optional if not present in the text)
+- Transaction Type (e.g. Withdrawal, Deposit, Third Party Deposit, Transfer, Balance Enquiry, Other)
+- Transaction Status (e.g. SUCCESS, FAILED)
+"""
+            },
+            {
+                "role": "user",
+                "content": text
+            },
         ],
         tools=tools,
         tool_choice={"type": "function", "function": {"name": "extract_structured"}},
