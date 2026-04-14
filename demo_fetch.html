@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TransactionMonitoring - Fetch Demo</title>
+    <style>
+      body { font-family: system-ui, Arial, sans-serif; padding: 2rem; }
+      textarea { width: 100%; height: 120px; }
+      pre { background:#f6f8fa; padding:1rem; overflow:auto }
+    </style>
+  </head>
+  <body>
+    <h1>Parse API - JavaScript Fetch Demo</h1>
+    <p>Enter text to parse and your API key, then click <em>Send</em>.</p>
+
+    <label>API Key: <input id="apikey" value="test-api-key-123" style="width:40%"/></label>
+    <div style="margin-top:0.5rem">
+      <label>API Base URL: <input id="apiBase" value="http://localhost:8000" style="width:40%"/></label>
+    </div>
+    <div style="margin-top:1rem">
+      <label>Text to parse:</label>
+      <textarea id="text">I bought coffee 5.50 and donut 2.00</textarea>
+    </div>
+
+    <div style="margin-top:1rem">
+      <button id="send">Send</button>
+    </div>
+
+    <h2>Response</h2>
+    <pre id="out">(no response yet)</pre>
+
+    <script>
+      const btn = document.getElementById('send');
+      const out = document.getElementById('out');
+
+      btn.addEventListener('click', async () => {
+        out.textContent = 'Sending...';
+        const apiKey = document.getElementById('apikey').value.trim();
+        const text = document.getElementById('text').value;
+
+        try {
+          const apiBase = document.getElementById('apiBase').value.replace(/\/+$/,'');
+          const resp = await fetch(apiBase + '/parse', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey
+            },
+            body: JSON.stringify({ text, user_agent: navigator.userAgent })
+          });
+
+          const data = await resp.json();
+          out.textContent = JSON.stringify({ status: resp.status, body: data }, null, 2);
+        } catch (err) {
+          out.textContent = 'Request failed: ' + String(err);
+        }
+      });
+    </script>
+  </body>
+</html>
