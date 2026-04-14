@@ -1,4 +1,9 @@
 {
-  "test-api-key-123": "alice",
-  "demo-key-xyz": "bob"
+  "Development": "Aditya Chaudhari",
+  "Device A": "Anoop Chaudhari",
+  "Device B": "User A",
+  "Device C": "User B",
+  "Device D": "User C",
+  "Device E": "User D",
+  "Device F": "User E"
 }
