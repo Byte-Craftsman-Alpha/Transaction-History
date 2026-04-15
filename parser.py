@@ -21,14 +21,15 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 class TransactionDescription(BaseModel):
-    date: str
-    time: str
-    transaction_id: str
+    # Adding default values makes these "optional" during validation
+    date: str = "Unknown" 
+    time: str = "Unknown"
+    transaction_id: str = "N/A"
     amount: Optional[float] = 0
     client_id: Optional[str] = None
     remaining_balance: Optional[float] = 0
     transaction_type: Optional[str] = "Unknown"
-    transaction_status: str
+    transaction_status: str = "PENDING" # Provide a sensible default
 
 
 class ParseResult(BaseModel):
@@ -37,22 +38,20 @@ class ParseResult(BaseModel):
 
 
 def _parse_local(text: str) -> ParseResult:
-    """A lightweight fallback parser that extracts currency amounts and nearby words.
-
-    This is intentionally simple: it finds tokens that look like prices (e.g. 12.50)
-    and associates the nearest preceding word as the name.
-    """
     items: List[TransactionDescription] = []
-    # find all amounts
+    # Simplified regex to find amounts
     for m in re.finditer(r"(\b[0-9]+(?:\.[0-9]{1,2})\b)", text):
         amount = float(m.group(1))
-        # attempt to get a preceding word (naive)
-        start = max(0, m.start() - 50)
-        snippet = text[start:m.start()]
-        # take last word-like token
-        names = re.findall(r"([A-Za-z\-]{2,})", snippet)
-        name = names[-1] if names else "unknown"
-        items.append(TransactionDescription(key=name, value=amount))
+        
+        # We MUST provide the required fields defined in TransactionDescription
+        items.append(TransactionDescription(
+            date="0000-00-00",        # Required by your model
+            time="00:00",              # Required by your model
+            transaction_id="LOCAL",    # Required by your model
+            transaction_status="UNKNOWN", # Required by your model
+            amount=amount,
+            transaction_type="Fallback"
+        ))
 
     return ParseResult(records=items, metadata={"parser": "local", "count": len(items)})
 
