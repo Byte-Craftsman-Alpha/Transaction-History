@@ -92,7 +92,7 @@ def _parse_with_groq(text: str) -> ParseResult:
             {
                 "role": "system",
                 "content": """
-You are a helpful assistant that extracts structured information of an ONLINE transaction from raw text.
+You are a precise financial data extraction engine. Extract transaction details from the provided text and return them in a structured format. Focus on accuracy and completeness, and ensure that the output adheres to the specified schema.
 You have to exctract the following information:
 - date of the transaction in ISO format (YYYY-MM-DD) patterns: [DD/MM/YYY, DD-MM-YY]
 - Time of the transaction in 24-hour format (HH:MM) patterns: [HH:MM:SS AM/PM, HH:MM:SS, HH:MM AM/PM, HH:MM]
