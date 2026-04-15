@@ -24,11 +24,11 @@ class TransactionDescription(BaseModel):
     date: str
     time: str
     transaction_id: str
-    amount: Optional[float] = None
+    amount: Optional[float] = 0
     client_id: Optional[str] = None
-    remaining_balance: Optional[float] = None
-    transaction_type: Optional[str] = None
-    transaction_status: Optional[str] = None
+    remaining_balance: Optional[float] = 0
+    transaction_type: Optional[str] = "Unknown"
+    transaction_status: str
 
 
 class ParseResult(BaseModel):
@@ -58,74 +58,72 @@ def _parse_local(text: str) -> ParseResult:
 
 
 def _parse_with_groq(text: str) -> ParseResult:
-    """Use Groq API to parse text into the `ParseResult` schema.
-
-    Requires `GROQ_API_KEY` and `GROQ_MODEL` environment variables to be set.
-    If the groq client isn't installed or environment variables are missing,
-    raises RuntimeError so the caller can fall back.
-    """
+    """Use Groq API to parse text using patterns derived from receipt_parser.js."""
     if Groq is None:
         raise RuntimeError("groq client not installed")
 
     api_key = os.getenv("GROQ_API_KEY")
-    model = os.getenv("GROQ_MODEL", "moonshotai/kimi-k2-instruct-0905")
-    if not api_key:
-        raise RuntimeError("GROQ_API_KEY is not set")
-
+    # Using a capable model for logic and pattern matching
+    model = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768") 
+    
     client = Groq(api_key=api_key)
 
-    # create tools schema from our Pydantic model
+    # Define the tool schema
     tools = [
         {
             "type": "function",
             "function": {
-                "name": "extract_structured",
-                "description": "Extract structured records from text",
+                "name": "extract_transaction_data",
+                "description": "Extract structured transaction details from raw receipt text.",
                 "parameters": ParseResult.model_json_schema(),
             },
         }
     ]
 
+    # --- ENHANCED PROMPT INTEGRATING KNOWN PATTERNS ---
+    system_instruction = (
+        "You are a precise financial data extraction engine. Extract transaction details from the provided text "
+        "using these specific pattern guidelines derived from legacy regex parsers:\n\n"
+        
+        "### 1. DATE & TIME NORMALIZATION\n"
+        "- **Date Patterns**: Recognize [DD/MM/YYYY], [YYYY-MM-DD], and [DD-MMM-YYYY] (e.g., 10-Jan-2024). "
+        "Normalize all dates to ISO format: YYYY-MM-DD.\n"
+        "- **Time Patterns**: Look for 24h or 12h formats. Always normalize to 12-hour format with AM/PM "
+        "(e.g., '14:30:05' becomes '02:30:05 PM').\n\n"
+        
+        "### 2. TRANSACTION MAPPING\n"
+        "- **Type**: Categorize into [AEPS Withdrawal, AEPS Deposit, AEPS Mini Statement, AEPS Balance Enquiry, Money Transfer, Fund Transfer, Third Party Deposit]. "
+        "Look for keywords like 'CASH_WITHDRAWAL', 'ON-US Cash Deposit', or 'Money Transfer'.\n"
+        "- **Status**: Map keywords like 'SUCCESSFUL' or 'TXN SUCCESS' to 'SUCCESS'. Map 'FAIL', 'DECLINED', or 'REJECTED' to 'FAILED'.\n\n"
+        
+        "### 3. SENSITIVE DATA & IDS\n"
+        "- **Transaction ID**: Prioritize STAN, RRN, or Txn ID. If the ID is longer than 6 digits, extract the full ID "
+        "but note that the primary identifier is often the last 6 digits.\n"
+        "- **Client ID**: Identify Aadhaar/VID or Account Numbers. Maintain masking if present.\n\n"
+        
+        "### 4. FINANCIAL DATA\n"
+        "- **Amount**: Extract numeric values only. Ignore 'Rs.', 'INR', or currency symbols. "
+        "Differentiate between 'Transaction Amount' and 'Remaining/Account Balance'.\n\n"
+        
+        "Strictly return the data using the 'extract_transaction_data' function."
+    )
+
     completion = client.chat.completions.create(
         model=model,
         messages=[
-            {
-                "role": "system",
-                "content": """
-You are a helpful assistant that extracts structured information of an ONLINE transaction from raw text.
-You have to exctract the following information:
-- date of the transaction in ISO format (YYYY-MM-DD)
-- Time of the transaction in 24-hour format (HH:MM)
-- Transaction ID (usually a 13-16 digit number)
-- Amount of the transaction (in float, without currency symbols and is optional if not present in the text)
-- Client ID (Aadhar number, Account Number or similar)
-- Remaining Balance after the transaction (in float, without currency symbols and is optional if not present in the text)
-- Transaction Type (e.g. Withdrawal, Deposit, Third Party Deposit, Transfer, Balance Enquiry, Other)
-- Transaction Status (e.g. SUCCESS, FAILED)
-"""
-            },
-            {
-                "role": "user",
-                "content": text
-            },
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": f"Receipt Text:\n{text}"}
         ],
         tools=tools,
-        tool_choice={"type": "function", "function": {"name": "extract_structured"}},
+        tool_choice={"type": "function", "function": {"name": "extract_transaction_data"}},
         temperature=0,
     )
 
+    # Parsing the tool response
     tool_call = completion.choices[0].message.tool_calls[0]
-    # `function.arguments` should be a JSON string/object matching ParseResult
-    args = tool_call.function.arguments
-    # allow either dict or JSON string
-    if isinstance(args, str):
-        import json
+    import json
+    data = json.loads(tool_call.function.arguments)
 
-        data = json.loads(args)
-    else:
-        data = args
-
-    # Validate and return
     return ParseResult.model_validate(data)
 
 
