@@ -20,13 +20,19 @@ except Exception:  # pragma: no cover - optional dependency
     Groq = None
 
 
-class Item(BaseModel):
-    key: str
-    value: Any
+class TransactionDescription(BaseModel):
+    date: str
+    time: str
+    transaction_id: str
+    amount: Optional[float] = None
+    client_id: Optional[str] = None
+    remaining_balance: Optional[float] = None
+    transaction_type: Optional[str] = None
+    transaction_status: Optional[str] = None
 
 
 class ParseResult(BaseModel):
-    records: List[Item]
+    records: List[TransactionDescription]
     metadata: Dict[str, Any] = {}
 
 
@@ -36,7 +42,7 @@ def _parse_local(text: str) -> ParseResult:
     This is intentionally simple: it finds tokens that look like prices (e.g. 12.50)
     and associates the nearest preceding word as the name.
     """
-    items: List[Item] = []
+    items: List[TransactionDescription] = []
     # find all amounts
     for m in re.finditer(r"(\b[0-9]+(?:\.[0-9]{1,2})\b)", text):
         amount = float(m.group(1))
@@ -46,7 +52,7 @@ def _parse_local(text: str) -> ParseResult:
         # take last word-like token
         names = re.findall(r"([A-Za-z\-]{2,})", snippet)
         name = names[-1] if names else "unknown"
-        items.append(Item(key=name, value=amount))
+        items.append(TransactionDescription(key=name, value=amount))
 
     return ParseResult(records=items, metadata={"parser": "local", "count": len(items)})
 

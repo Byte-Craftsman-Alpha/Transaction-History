@@ -39,6 +39,46 @@ curl -X POST http://localhost:8000/parse \
   -d '{"text": "I bought coffee 5.50 and donut 2.00", "user_agent": "curl/7.XX"}'
 ```
 
+```javascript
+/**
+ * Simple test script for the TransactionMonitoring API
+ * Paste this into your browser console.
+ */
+const testParseAPI = async (text = "Dinner at Italian place 45.00", apiKey = "Device A") => {
+    const apiBase = "https://transaction-history-iota.vercel.app"; // Adjust if your backend is on a different port
+    
+    console.log(`%c🚀 Sending request to ${apiBase}/parse...`, "color: #007bff; font-weight: bold;");
+
+    try {
+        const response = await fetch(`${apiBase}/parse`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+            },
+            body: JSON.stringify({ 
+                text: text, 
+                user_agent: navigator.userAgent 
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log("%c✅ Success!", "color: #28a745; font-weight: bold;");
+            console.table(data); // Displays the JSON response in a nice table
+        } else {
+            console.error(`%c❌ API Error (${response.status}):`, "font-weight: bold;", data);
+        }
+    } catch (err) {
+        console.error("%c🔥 Network/CORS Error:", "font-weight: bold; color: #dc3545;", err.message);
+    }
+};
+
+// Execute immediately
+testParseAPI();
+```
+
 Notes on production readiness
 - Store API keys securely (vault/DB) — `api_keys.json` is only for demo.
 - Use HTTPS behind a reverse proxy.
